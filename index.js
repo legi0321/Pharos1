@@ -58,19 +58,26 @@ async function claimFaucet() {
   }
 }
 
-// ✅ 2. Kirim token ke banyak alamat
+// ✅ 2. Kirim WPHRS ke 10 alamat random dari addresses.txt
 async function sendTokens() {
-  const addresses = fs.readFileSync('addresses.txt', 'utf-8')
+  let addresses = fs.readFileSync('addresses.txt', 'utf-8')
     .split('\n')
     .map(a => a.trim())
     .filter(Boolean);
 
+  // Acak urutan address
+  addresses = addresses.sort(() => Math.random() - 0.5);
+
+  // Ambil 10 address pertama
+  const selected = addresses.slice(0, 10);
+
   const amount = ethers.utils.parseUnits(AMOUNT_SEND, DECIMALS);
-  for (let i = 0; i < addresses.length; i++) {
-    const to = addresses[i];
+
+  for (let i = 0; i < selected.length; i++) {
+    const to = selected[i];
     try {
-      console.log(`📤 Kirim ${AMOUNT_SEND} USDC ke ${to} (${i + 1})`);
-      const tx = await usdc.transfer(to, amount);
+      console.log(`📤 Kirim ${AMOUNT_SEND} WPHRS ke ${to} (${i + 1}/10)`);
+      const tx = await wphrs.transfer(to, amount);
       console.log(`⏳ TX: ${tx.hash}`);
       await tx.wait();
       console.log(`✅ Sukses`);
