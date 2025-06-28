@@ -1,5 +1,5 @@
 // === pharos_bot/index.js ===
-import ethers from 'ethers';
+import { ethers } from 'ethers';
 import axios from 'axios';
 import fs from 'fs';
 import dotenv from 'dotenv';
@@ -25,7 +25,7 @@ const AMOUNT_LIQUIDITY = config.amountLiquidity || "0.1";
 const SELECTED_ROUTER = ROUTERS[config.useRouter || "zenith"];
 
 // ========== Provider ==========
-const provider = new ethers.JsonRpcProvider(RPC_URL);
+const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 
 // ========== ABIs ==========
 const erc20Abi = [
