@@ -1,6 +1,7 @@
 {
-  "amountSend": "25",
-  "amountSwap": "25",
-  "amountLiquidity": "25",
+  "amountSend": "0.001",
+  "amountSwap": "0.02",
+  "swapTimes": 20,
+  "amountLiquidity": "0.01",
   "useRouter": "zenith"
 }
