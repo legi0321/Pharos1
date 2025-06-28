@@ -1,19 +1,18 @@
 // === pharos_bot/index.js ===
-import { ethers } from 'ethers';
+import ethers from 'ethers';
 import axios from 'axios';
 import fs from 'fs';
 import dotenv from 'dotenv';
 dotenv.config();
 
 // ========== Konstanta Konfigurasi ==========
-const RPC_URL = "https://api.zan.top/node/v1/pharos/testnet/1311fbe804cc47e4a02e66a76d9c5d7b";
+const RPC_URL = "https://api.zan.top/node/v1/pharos/testnet/1761472bf26745488907477d23719fb5";
 const USDC_ADDRESS = "0xad902cf99c2de2f1ba5ec4d642fd7e49cae9ee37";
 const WPHRS_ADDRESS = "0x76aaada469d23216be5f7c596fa25f282ff9b364";
 const ROUTERS = {
   zenith: "0x1a4de519154ae51200b0ad7c90f7fac75547888a",
   faroswap: "0x3541423f25a1ca5c98fdbcf478405d3f0aad1164"
 };
-const FAUCET_URL = "https://testnet-router.zenithswap.xyz/api/v1/faucet";
 const CHECKIN_URL = "https://api.pharosnetwork.xyz/api/daily/check-in";
 const DECIMALS = 18;
 
@@ -26,7 +25,7 @@ const AMOUNT_LIQUIDITY = config.amountLiquidity || "0.1";
 const SELECTED_ROUTER = ROUTERS[config.useRouter || "zenith"];
 
 // ========== Provider ==========
-const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+const provider = new ethers.JsonRpcProvider(RPC_URL);
 
 // ========== ABIs ==========
 const erc20Abi = [
@@ -46,17 +45,6 @@ function logToFile(walletAddress, message) {
   fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${message}\n`);
 }
 
-async function claimFaucet(wallet) {
-  try {
-    const res = await axios.post(FAUCET_URL, { address: wallet.address });
-    console.log("🚰 Faucet:", res.data);
-    logToFile(wallet.address, `Faucet: ${JSON.stringify(res.data)}`);
-  } catch (err) {
-    console.error("❌ Faucet error:", err.message);
-    logToFile(wallet.address, `Faucet error: ${err.message}`);
-  }
-}
-
 async function sendTokens(wphrs, wallet) {
   let addresses = fs.readFileSync('addresses.txt', 'utf-8')
     .split('\n')
@@ -65,17 +53,16 @@ async function sendTokens(wphrs, wallet) {
     .sort(() => Math.random() - 0.5)
     .slice(0, 10);
 
-  const amount = ethers.utils.parseUnits(AMOUNT_SEND, DECIMALS);
+  const amount = ethers.parseUnits(AMOUNT_SEND, DECIMALS);
   const balance = await wphrs.balanceOf(wallet.address);
 
-  if (balance.lt(amount.mul(addresses.length))) {
+  if (balance < amount * addresses.length) {
     console.log("❌ Saldo WPHRS tidak cukup untuk kirim.");
-    logToFile(wallet.address, `Saldo WPHRS tidak cukup: ${ethers.utils.formatUnits(balance)}`);
+    logToFile(wallet.address, `Saldo WPHRS tidak cukup: ${ethers.formatUnits(balance)}`);
     return;
   }
 
-  for (let i = 0; i < addresses.length; i++) {
-    const to = addresses[i];
+  for (let to of addresses) {
     try {
       const tx = await wphrs.transfer(to, amount);
       console.log(`📤 Kirim ${AMOUNT_SEND} WPHRS ke ${to}`);
@@ -89,36 +76,39 @@ async function sendTokens(wphrs, wallet) {
 }
 
 async function swapTokens(usdc, router, wallet) {
-  const amountIn = ethers.utils.parseUnits(AMOUNT_SWAP, DECIMALS);
+  const amountIn = ethers.parseUnits(AMOUNT_SWAP, DECIMALS);
+  const totalNeeded = amountIn * BigInt(SWAP_TIMES);
   const balance = await usdc.balanceOf(wallet.address);
-  if (balance.lt(amountIn)) {
-    console.log("❌ Saldo USDC tidak cukup untuk swap.");
-    logToFile(wallet.address, `Saldo USDC kurang: ${ethers.utils.formatUnits(balance)}`);
+  if (balance < totalNeeded) {
+    console.log(`❌ Saldo USDC tidak cukup untuk swap ${SWAP_TIMES}x`);
+    logToFile(wallet.address, `Saldo USDC kurang untuk ${SWAP_TIMES}x swap: ${ethers.formatUnits(balance)}`);
     return;
   }
 
   const path = [USDC_ADDRESS, WPHRS_ADDRESS];
   const deadline = Math.floor(Date.now() / 1000) + 600;
 
-  try {
-    await usdc.approve(SELECTED_ROUTER, amountIn);
-    const tx = await router.swapExactTokensForTokens(amountIn, 0, path, wallet.address, deadline);
-    console.log(`🔄 Swap ${AMOUNT_SWAP} USDC -> WPHRS`);
-    logToFile(wallet.address, `Swap TX: ${tx.hash}`);
-    await tx.wait();
-  } catch (err) {
-    console.error("❌ Swap gagal:", err.message);
-    logToFile(wallet.address, `Swap error: ${err.message}`);
+  for (let i = 1; i <= SWAP_TIMES; i++) {
+    try {
+      await usdc.approve(SELECTED_ROUTER, amountIn);
+      const tx = await router.swapExactTokensForTokens(amountIn, 0, path, wallet.address, deadline);
+      console.log(`🔄 Swap #${i}: ${AMOUNT_SWAP} USDC -> WPHRS`);
+      logToFile(wallet.address, `Swap #${i} TX: ${tx.hash}`);
+      await tx.wait();
+    } catch (err) {
+      console.error(`❌ Swap #${i} gagal:`, err.message);
+      logToFile(wallet.address, `Swap #${i} error: ${err.message}`);
+    }
   }
 }
 
 async function addLiquidity(usdc, wphrs, router, wallet) {
-  const amount = ethers.utils.parseUnits(AMOUNT_LIQUIDITY, DECIMALS);
+  const amount = ethers.parseUnits(AMOUNT_LIQUIDITY, DECIMALS);
   const balUSDC = await usdc.balanceOf(wallet.address);
   const balWPHRS = await wphrs.balanceOf(wallet.address);
-  if (balUSDC.lt(amount) || balWPHRS.lt(amount)) {
+  if (balUSDC < amount || balWPHRS < amount) {
     console.log("❌ Saldo tidak cukup untuk add liquidity.");
-    logToFile(wallet.address, `LP gagal: USDC=${ethers.utils.formatUnits(balUSDC)}, WPHRS=${ethers.utils.formatUnits(balWPHRS)}`);
+    logToFile(wallet.address, `LP gagal: USDC=${ethers.formatUnits(balUSDC)}, WPHRS=${ethers.formatUnits(balWPHRS)}`);
     return;
   }
 
@@ -164,11 +154,9 @@ if (!privateKeys || privateKeys.length === 0) {
     const wphrs = new ethers.Contract(WPHRS_ADDRESS, erc20Abi, wallet);
     const router = new ethers.Contract(SELECTED_ROUTER, routerAbi, wallet);
 
-    await claimFaucet(wallet);
     await sendTokens(wphrs, wallet);
     await swapTokens(usdc, router, wallet);
     await addLiquidity(usdc, wphrs, router, wallet);
     await dailyCheckIn(wallet);
   }
 })();
-
