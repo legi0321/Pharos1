@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // ========== Konstanta Konfigurasi ==========
-const RPC_URL = "https://api.zan.top/node/v1/pharos/testnet/1761472bf26745488907477d23719fb5";
+const RPC_URL = "https://api.zan.top/node/v1/pharos/testnet/1311fbe804cc47e4a02e66a76d9c5d7b";
 const USDC_ADDRESS = "0xad902cf99c2de2f1ba5ec4d642fd7e49cae9ee37";
 const WPHRS_ADDRESS = "0x76aaada469d23216be5f7c596fa25f282ff9b364";
 const ROUTERS = {
