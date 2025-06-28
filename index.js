@@ -25,7 +25,7 @@ const DECIMALS = 18;
 const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
 const AMOUNT_SEND = config.amountSend || "0.001";
 const AMOUNT_SWAP = config.amountSwap || "0.2";
-const SWAP_TIMES = config.swapTimes || 1;
+const SWAP_TIMES = config.swapTimes || 20;
 const AMOUNT_LIQUIDITY = config.amountLiquidity || "0.1";
 const SELECTED_ROUTER = ROUTERS[config.useRouter || "zenith"];
 
